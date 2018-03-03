@@ -1,48 +1,77 @@
 const request = require('request');
-var cheerio = require('cheerio');
 var fs = require('fs');
 const restaurants = [];
+var obj1 = { table1: [] };
 
-function getLafourchette(restaurant) {
-  const configuration = {
-    'uri': 'https://m.lafourchette.com/api/restaurant-prediction?name='+restaurant
+fs.readFile('restaurant.json', 'utf8', function readFileCallback(err, data) {
+  if (err) {
+    console.error(err);
+  } else {
+    obj = JSON.parse(data);
+    for (var i in obj.table) {
+      getLafourchetteID(obj.table[i].name)
+    }
+
   }
+});
 
-  return new Promise((resolve, reject) => {
-    request(configuration, (err, response, body) => {
-      if (err) {
-        return reject(err);
-      }else{
-        var $ = cheerio.load(body);
-        var a = $("span.s").first().text()
-        console.log("ID:"+a)
+function getLafourchetteID(restaurant) {
+  restaurant = restaurant.replace(/é|è|ê/g, "e");
+  var url = "https://m.lafourchette.com/api/restaurant-prediction?name=" + restaurant
+
+  request(url, (err, response, html) => {
+    if (err) {
+      console.error(err);
+      return;
+    } else {
+      if (response.statusCode == 400) {
+        console.log('NOT FOUND');
+        return;
       }
-    })
+      else {
+        objet = JSON.parse(html)
+        if (objet[0] != null) {
+          var id = objet[0].id;
+          obj1.table1.push({name:restaurant,id:id,promo:""})
+          json = JSON.stringify(obj1);
+          var fs = require('fs');
+          fs.writeFile('restaurantID_Promo.json', json, 'utf-8',(err) => {
+              if (err) {
+                  console.error(err);
+                  return;
+              };
+          });
+      }
+    }
+    }
+  })
+}
+
+function getLafourchettePromo(id) {
+  var url = "https://m.lafourchette.com/api/restaurant/" + id + "/sale-type";
+
+  request(url, (err, response, html) => {
+    if (err) {
+      console.log(err);
+    } else {
+
+      var json = JSON.parse(html);
+
+
+      json.forEach(element => {
+        if (element.is_special_offer) {
+          var promo = []
+          promo.push(element);
+
+        }
+      });
+    }
   });
 }
 
+/*restaurants.forEach(restaurant => {
+getLafourchetteID(restaurant)
+//getLafourchettePromo(id);
+})*/
 
-getLafourchette('le courot')
-.then(result => console.log(result))
-.catch(err => console.error(err));
-
-fs.readFile('restaurant.json', 'utf8', function readFileCallback(err, data){
-  if (err){
-    console.log(err);
-  } else {
-    obj = JSON.parse(data);
-    for( var i in obj.table ) {
-      restaurants.push(obj.table[i].name);
-    }
-
-  }});
-
-  //const restaurants = ['le courot', 'yannick aleno', ..., 'xxxxx'];
-  /*const requests = restaurants.map(restaurant => getLafourchette(restaurant));
-
-
-  Promise.all(requests)
-  .then(function display (results) {
-    console.log(results);
-  })
-  .catch(error => console.log(error));*/
+//getLafourchetteID('Agapé')
